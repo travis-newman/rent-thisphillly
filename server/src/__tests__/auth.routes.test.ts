@@ -42,7 +42,10 @@ describe("auth routes", () => {
     const res = await request(app).post("/api/auth/register").send({ email, password });
 
     expect(res.status).toBe(201);
-    expect(mailer.sendVerificationEmail).toHaveBeenCalledWith(email, expect.stringContaining("/verify-email/"));
+    expect(mailer.sendVerificationEmail).toHaveBeenCalledWith(
+      email,
+      expect.stringContaining("/verify-email/"),
+    );
 
     const user = await UserModel.findOne({ email });
     expect(user).not.toBeNull();
@@ -78,7 +81,9 @@ describe("auth routes", () => {
 
   it("rejects login with the wrong password", async () => {
     await registerAndVerify(email, password);
-    const res = await request(app).post("/api/auth/login").send({ email, password: "wrong-password" });
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password: "wrong-password" });
     expect(res.status).toBe(401);
   });
 
@@ -94,9 +99,11 @@ describe("auth routes", () => {
 
     const refreshRes = await request(app).post("/api/auth/refresh").set("Cookie", cookies);
     expect(refreshRes.status).toBe(204);
-    expect((refreshRes.get("Set-Cookie") as unknown as string[]).some((c) => c.startsWith("accessToken="))).toBe(
-      true,
-    );
+    expect(
+      (refreshRes.get("Set-Cookie") as unknown as string[]).some((c) =>
+        c.startsWith("accessToken="),
+      ),
+    ).toBe(true);
   });
 
   it("clears cookies on logout", async () => {
@@ -129,12 +136,16 @@ describe("auth routes", () => {
       .send({ password: newPassword });
     expect(resetRes.status).toBe(200);
 
-    const loginRes = await request(app).post("/api/auth/login").send({ email, password: newPassword });
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password: newPassword });
     expect(loginRes.status).toBe(200);
   });
 
   it("does not reveal whether an email is registered on forgot-password", async () => {
-    const res = await request(app).post("/api/auth/forgot-password").send({ email: "nobody@example.com" });
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: "nobody@example.com" });
     expect(res.status).toBe(200);
   });
 });

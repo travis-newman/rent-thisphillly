@@ -29,7 +29,13 @@ export function Login() {
       <h1>Log in</h1>
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
         <label htmlFor="password">Password</label>
         <input
@@ -50,7 +56,7 @@ export function Login() {
         <Link to="/forgot-password">Forgot your password?</Link>
       </p>
       <p>
-        Don't have an account? <Link to="/register">Register</Link>
+        Don&apos;t have an account? <Link to="/register">Register</Link>
       </p>
     </div>
   );

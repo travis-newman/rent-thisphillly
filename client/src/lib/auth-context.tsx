@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { api, type AuthUser } from "./api";
 
 interface AuthContextValue {
@@ -28,7 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }, []);
 
-  const register = useCallback((email: string, password: string) => api.register(email, password), []);
+  const register = useCallback(
+    (email: string, password: string) => api.register(email, password),
+    [],
+  );
 
   const logout = useCallback(async () => {
     await api.logout();
@@ -43,6 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Colocating this hook with AuthProvider (rather than a separate file) means
+// this module exports a non-component alongside a component, which trips
+// react-refresh's single-export heuristic — fast refresh still works fine
+// here since useAuth has no state of its own.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {

@@ -45,7 +45,9 @@ describe("Register", () => {
   });
 
   it("shows an error message when registration fails", async () => {
-    (api.register as jest.Mock).mockRejectedValue(new Error("An account with that email already exists"));
+    (api.register as jest.Mock).mockRejectedValue(
+      new Error("An account with that email already exists"),
+    );
     const user = userEvent.setup();
     renderRegister();
 

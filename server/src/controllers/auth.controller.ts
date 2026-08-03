@@ -47,7 +47,9 @@ export async function register(req: Request, res: Response): Promise<void> {
   const link = `${env.CLIENT_URL}/verify-email/${verificationToken}`;
   await sendVerificationEmail(email, link);
 
-  res.status(201).json({ message: "Registration successful. Check your email to verify your account." });
+  res
+    .status(201)
+    .json({ message: "Registration successful. Check your email to verify your account." });
 }
 
 export async function verifyEmail(req: Request, res: Response): Promise<void> {

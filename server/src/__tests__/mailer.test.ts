@@ -20,7 +20,10 @@ describe("mailer", () => {
   });
 
   it("sends a password reset email with the link included", async () => {
-    await sendPasswordResetEmail("user@example.com", "https://app.example.com/reset-password/xyz789");
+    await sendPasswordResetEmail(
+      "user@example.com",
+      "https://app.example.com/reset-password/xyz789",
+    );
 
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -33,7 +33,13 @@ export function Register() {
       <h1>Create an account</h1>
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
         <label htmlFor="password">Password</label>
         <input

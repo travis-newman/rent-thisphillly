@@ -26,7 +26,13 @@ export function ForgotPassword() {
       <h1>Forgot password</h1>
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Sending…" : "Send reset link"}
         </button>
