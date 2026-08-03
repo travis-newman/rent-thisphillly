@@ -7,27 +7,38 @@ import { env } from "../config/env";
 const transporter =
   env.NODE_ENV === "test"
     ? nodemailer.createTransport({ jsonTransport: true })
-    : nodemailer.createTransport({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_PORT === 465,
-        auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
-      });
+    : env.MAILER_DISABLED
+      ? null
+      : nodemailer.createTransport({
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_PORT === 465,
+          auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+        });
+
+async function send(to: string, subject: string, html: string, link: string): Promise<void> {
+  if (transporter === null) {
+    console.log(`[mailer disabled] "${subject}" for ${to}: ${link}`);
+    return;
+  }
+
+  await transporter.sendMail({ from: env.SMTP_FROM, to, subject, html });
+}
 
 export async function sendVerificationEmail(to: string, link: string): Promise<void> {
-  await transporter.sendMail({
-    from: env.SMTP_FROM,
+  await send(
     to,
-    subject: "Verify your email",
-    html: `<p>Welcome! Please verify your email by clicking the link below.</p><p><a href="${link}">${link}</a></p>`,
-  });
+    "Verify your email",
+    `<p>Welcome! Please verify your email by clicking the link below.</p><p><a href="${link}">${link}</a></p>`,
+    link,
+  );
 }
 
 export async function sendPasswordResetEmail(to: string, link: string): Promise<void> {
-  await transporter.sendMail({
-    from: env.SMTP_FROM,
+  await send(
     to,
-    subject: "Reset your password",
-    html: `<p>You requested a password reset. Click the link below to choose a new password.</p><p><a href="${link}">${link}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
-  });
+    "Reset your password",
+    `<p>You requested a password reset. Click the link below to choose a new password.</p><p><a href="${link}">${link}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+    link,
+  );
 }
