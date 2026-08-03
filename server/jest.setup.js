@@ -1,0 +1,9 @@
+process.env.MONGO_URI ||= "mongodb://localhost:27017/base-app-test";
+process.env.JWT_ACCESS_SECRET ||= "test-access-secret";
+process.env.JWT_REFRESH_SECRET ||= "test-refresh-secret";
+process.env.SMTP_HOST ||= "smtp.test.local";
+process.env.SMTP_PORT ||= "587";
+process.env.SMTP_USER ||= "test-user";
+process.env.SMTP_PASS ||= "test-pass";
+process.env.SMTP_FROM ||= "Base App <no-reply@example.com>";
+process.env.NODE_ENV = "test";
