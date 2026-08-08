@@ -4,7 +4,9 @@ import express, { type Express } from "express";
 import { env } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
 import { authRouter } from "./routes/auth.routes";
+import { buildingsRouter } from "./routes/buildings.routes";
 import { testRouter } from "./routes/test.routes";
+import { usersRouter } from "./routes/users.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -15,6 +17,8 @@ export function createApp(): Express {
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app.use("/api/auth", authRouter);
+  app.use("/api/buildings", buildingsRouter);
+  app.use("/api/users", usersRouter);
 
   if (env.NODE_ENV === "test") {
     app.use("/api/test", testRouter);

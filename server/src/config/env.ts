@@ -8,7 +8,13 @@ const envSchema = z
     MONGO_URI: z.string().min(1, "MONGO_URI is required"),
     JWT_ACCESS_SECRET: z.string().min(1, "JWT_ACCESS_SECRET is required"),
     JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),
-    MAILER_DISABLED: z.coerce.boolean().default(false),
+    // z.coerce.boolean() would coerce the string "false" to `true` (any
+    // non-empty string is truthy), silently breaking an explicit
+    // MAILER_DISABLED=false in .env — parse the literal strings instead.
+    MAILER_DISABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().default(587),
     SMTP_USER: z.string().optional(),

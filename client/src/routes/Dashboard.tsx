@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 export function Dashboard() {
@@ -13,7 +13,18 @@ export function Dashboard() {
   return (
     <div>
       <h1>Dashboard</h1>
-      <p>Welcome, {user?.email}.</p>
+      <p>
+        Welcome, {user?.email} ({user?.role}).
+      </p>
+      <p>
+        <Link to="/buildings">Buildings</Link>
+        {user?.role === "admin" && (
+          <>
+            {" · "}
+            <Link to="/admin/users">Manage users</Link>
+          </>
+        )}
+      </p>
       <button onClick={handleLogout}>Log out</button>
     </div>
   );

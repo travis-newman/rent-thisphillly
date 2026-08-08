@@ -6,6 +6,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "start:e2e": "tsx scripts/start-e2e-server.ts",
+    "seed:buildings": "tsx scripts/seed-buildings.ts",
+    "role:set": "tsx scripts/set-user-role.ts",
     "test": "jest"
   },
   "dependencies": {

@@ -7,6 +7,9 @@ export function Home() {
   return (
     <div>
       <h1>Base App</h1>
+      <p>
+        <Link to="/buildings">Browse buildings</Link>
+      </p>
       {user ? (
         <p>
           Signed in as {user.email}. Go to your <Link to="/dashboard">dashboard</Link>.

@@ -41,8 +41,17 @@ export async function register(req: Request, res: Response): Promise<void> {
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   const verificationToken = generateRandomToken();
+  // With mailer disabled there's no way to receive the verification email, so
+  // local/dev accounts (MAILER_DISABLED=true) are verified immediately instead
+  // of getting stuck behind a link nothing ever sends.
+  const isVerified = env.MAILER_DISABLED;
 
-  await UserModel.create({ email, passwordHash, verificationToken });
+  await UserModel.create({ email, passwordHash, verificationToken, isVerified });
+
+  if (isVerified) {
+    res.status(201).json({ message: "Registration successful. You can now log in." });
+    return;
+  }
 
   const link = `${env.CLIENT_URL}/verify-email/${verificationToken}`;
   await sendVerificationEmail(email, link);
@@ -96,10 +105,17 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  if (user.status === "suspended") {
+    res.status(403).json({ message: "This account has been suspended" });
+    return;
+  }
+
   const payload = { sub: user.id as string, email: user.email };
   setAuthCookies(res, signAccessToken(payload), signRefreshToken(payload));
 
-  res.json({ user: { id: user.id, email: user.email } });
+  res.json({
+    user: { id: user.id, email: user.email, role: user.role, status: user.status },
+  });
 }
 
 export function logout(_req: Request, res: Response): void {
@@ -131,7 +147,9 @@ export async function me(req: Request, res: Response): Promise<void> {
     res.status(404).json({ message: "User not found" });
     return;
   }
-  res.json({ user: { id: user.id, email: user.email } });
+  res.json({
+    user: { id: user.id, email: user.email, role: user.role, status: user.status },
+  });
 }
 
 const forgotPasswordSchema = z.object({ email: z.string().email() });
