@@ -1,9 +1,12 @@
+import { Button, Select, Table } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, type AccountStatus, type AdminUser, type Role } from "../lib/api";
 
 const ROLES: Role[] = ["admin", "client", "user"];
 const STATUSES: AccountStatus[] = ["active", "suspended"];
+const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r }));
+const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: s }));
 
 function UserRow({ user, onSaved }: { user: AdminUser; onSaved: (user: AdminUser) => void }) {
   const [role, setRole] = useState(user.role);
@@ -27,33 +30,31 @@ function UserRow({ user, onSaved }: { user: AdminUser; onSaved: (user: AdminUser
   }
 
   return (
-    <tr>
-      <td>{user.email}</td>
-      <td>
-        <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <select value={status} onChange={(e) => setStatus(e.target.value as AccountStatus)}>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <button onClick={handleSave} disabled={!isDirty || isSaving}>
+    <Table.Tr>
+      <Table.Td>{user.email}</Table.Td>
+      <Table.Td>
+        <Select
+          data={ROLE_OPTIONS}
+          value={role}
+          onChange={(value) => setRole((value as Role) ?? user.role)}
+          allowDeselect={false}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Select
+          data={STATUS_OPTIONS}
+          value={status}
+          onChange={(value) => setStatus((value as AccountStatus) ?? user.status)}
+          allowDeselect={false}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Button size="xs" onClick={handleSave} disabled={!isDirty} loading={isSaving}>
           Save
-        </button>
+        </Button>
         {error && <span role="alert"> {error}</span>}
-      </td>
-    </tr>
+      </Table.Td>
+    </Table.Tr>
   );
 }
 
@@ -85,21 +86,21 @@ export function AdminUsers() {
       {error && <p role="alert">{error}</p>}
 
       {!isLoading && !error && (
-        <table>
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Email</Table.Th>
+              <Table.Th>Role</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th></Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
             {users.map((user) => (
               <UserRow key={user._id} user={user} onSaved={handleSaved} />
             ))}
-          </tbody>
-        </table>
+          </Table.Tbody>
+        </Table>
       )}
     </div>
   );

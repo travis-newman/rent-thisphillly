@@ -1,13 +1,14 @@
+import { Checkbox, TextInput } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AdminBuildingForm,
   ClientBuildingForm,
   emptyAdminForm,
-  getWebsiteHostname,
   toAdminForm,
   useClientList,
 } from "../components/BuildingForms";
+import { BuildingSummaryLine } from "../components/BuildingSummary";
 import { api, type Building, type BuildingInput } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 
@@ -89,26 +90,24 @@ export function Buildings() {
     <div>
       <h1>Buildings</h1>
       <p>
-        <Link to="/">Home</Link>
+        <Link to="/">Home</Link> · <Link to="/map">Map view</Link> ·{" "}
+        <Link to="/regions">Regions</Link>
       </p>
 
-      <input
+      <TextInput
         type="search"
         placeholder="Search by address or building name"
         value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
+        onChange={(e) => setSearchInput(e.currentTarget.value)}
       />
 
       {isClient && (
         <p>
-          <label>
-            <input
-              type="checkbox"
-              checked={mineOnly}
-              onChange={(e) => setMineOnly(e.target.checked)}
-            />{" "}
-            Show only buildings I manage
-          </label>
+          <Checkbox
+            label="Show only buildings I manage"
+            checked={mineOnly}
+            onChange={(e) => setMineOnly(e.currentTarget.checked)}
+          />
         </p>
       )}
 
@@ -138,7 +137,6 @@ export function Buildings() {
           </p>
           <ul>
             {buildings.map((building) => {
-              const hostname = getWebsiteHostname(building.website);
               const canEdit = isAdmin || (isClient && building.managedBy === user!.id);
 
               if (editingId === building._id) {
@@ -169,31 +167,7 @@ export function Buildings() {
 
               return (
                 <li key={building._id}>
-                  <strong>
-                    <Link to={`/buildings/${building._id}`}>
-                      {building.buildingName ?? building.address}
-                    </Link>
-                  </strong>
-                  {" — "}
-                  {building.address}
-                  {building.zipCode ? `, ${building.zipCode}` : ""}
-                  {building.numberOfUnits != null && <> · {building.numberOfUnits} units</>}
-                  {building.yearBuilt != null && <> · built {building.yearBuilt}</>}
-                  {building.leasingPhone && <> · {building.leasingPhone}</>}
-                  {building.leasingEmail && (
-                    <>
-                      {" · "}
-                      <a href={`mailto:${building.leasingEmail}`}>{building.leasingEmail}</a>
-                    </>
-                  )}
-                  {hostname && (
-                    <>
-                      {" · "}
-                      <a href={building.website!} target="_blank" rel="noreferrer">
-                        {hostname}
-                      </a>
-                    </>
-                  )}
+                  <BuildingSummaryLine building={building} />
                   {canEdit && (
                     <>
                       {" "}

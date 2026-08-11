@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Button, Group, NumberInput, Select, Stack, TextInput } from "@mantine/core";
+import { useForm } from "@mantine/form";
+import { useEffect, useState } from "react";
 import { api, ApiError, type AdminUser, type Building, type BuildingInput } from "../lib/api";
 
 // This file intentionally exports helpers/hooks (getWebsiteHostname,
@@ -20,13 +22,12 @@ export function getWebsiteHostname(website: string | null): string | null {
   }
 }
 
-function numToStr(n: number | null): string {
-  return n == null ? "" : String(n);
+function numToNumOrEmpty(n: number | null): number | "" {
+  return n == null ? "" : n;
 }
 
-function strToNum(s: string): number | null {
-  const trimmed = s.trim();
-  return trimmed === "" ? null : Number(trimmed);
+function numOrEmptyToNum(n: number | ""): number | null {
+  return n === "" ? null : n;
 }
 
 interface ClientFormValues {
@@ -44,12 +45,11 @@ export function ClientBuildingForm({
   onSubmit: (input: BuildingInput) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState(initial);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const form = useForm({ initialValues: initial });
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(values: ClientFormValues) {
     setIsSaving(true);
     setError(null);
     try {
@@ -67,31 +67,25 @@ export function ClientBuildingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        placeholder="Leasing phone"
-        value={values.leasingPhone}
-        onChange={(e) => setValues({ ...values, leasingPhone: e.target.value })}
-      />
-      <input
-        placeholder="Leasing email"
-        type="email"
-        value={values.leasingEmail}
-        onChange={(e) => setValues({ ...values, leasingEmail: e.target.value })}
-      />
-      <input
-        placeholder="Website"
-        type="url"
-        value={values.website}
-        onChange={(e) => setValues({ ...values, website: e.target.value })}
-      />
-      <button type="submit" disabled={isSaving}>
-        Save
-      </button>
-      <button type="button" onClick={onCancel} disabled={isSaving}>
-        Cancel
-      </button>
-      {error && <p role="alert">{error}</p>}
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Stack maw={400}>
+        <TextInput label="Leasing phone" {...form.getInputProps("leasingPhone")} />
+        <TextInput
+          label="Leasing email"
+          type="email"
+          {...form.getInputProps("leasingEmail")}
+        />
+        <TextInput label="Website" type="url" {...form.getInputProps("website")} />
+        <Group>
+          <Button type="submit" loading={isSaving}>
+            Save
+          </Button>
+          <Button type="button" variant="default" onClick={onCancel} disabled={isSaving}>
+            Cancel
+          </Button>
+        </Group>
+        {error && <p role="alert">{error}</p>}
+      </Stack>
     </form>
   );
 }
@@ -102,11 +96,11 @@ interface AdminFormValues {
   website: string;
   leasingPhone: string;
   leasingEmail: string;
-  numberOfUnits: string;
-  yearBuilt: string;
-  numberOfStories: string;
-  totalLivableArea: string;
-  marketValue: string;
+  numberOfUnits: number | "";
+  yearBuilt: number | "";
+  numberOfStories: number | "";
+  totalLivableArea: number | "";
+  marketValue: number | "";
   ownerBusinessName: string;
   managedBy: string;
 }
@@ -124,16 +118,11 @@ export function AdminBuildingForm({
   onSubmit: (input: BuildingInput) => Promise<void>;
   onCancel?: () => void;
 }) {
-  const [values, setValues] = useState(initial);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const form = useForm({ initialValues: initial });
 
-  function set<K extends keyof AdminFormValues>(key: K, value: string) {
-    setValues((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(values: AdminFormValues) {
     setIsSaving(true);
     setError(null);
     try {
@@ -143,11 +132,11 @@ export function AdminBuildingForm({
         website: values.website.trim() || null,
         leasingPhone: values.leasingPhone.trim() || null,
         leasingEmail: values.leasingEmail.trim() || null,
-        numberOfUnits: strToNum(values.numberOfUnits),
-        yearBuilt: strToNum(values.yearBuilt),
-        numberOfStories: strToNum(values.numberOfStories),
-        totalLivableArea: strToNum(values.totalLivableArea),
-        marketValue: strToNum(values.marketValue),
+        numberOfUnits: numOrEmptyToNum(values.numberOfUnits),
+        yearBuilt: numOrEmptyToNum(values.yearBuilt),
+        numberOfStories: numOrEmptyToNum(values.numberOfStories),
+        totalLivableArea: numOrEmptyToNum(values.totalLivableArea),
+        marketValue: numOrEmptyToNum(values.marketValue),
         ownerBusinessName: values.ownerBusinessName.trim() || null,
         managedBy: values.managedBy || null,
       });
@@ -159,88 +148,42 @@ export function AdminBuildingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        placeholder="Address"
-        value={values.address}
-        onChange={(e) => set("address", e.target.value)}
-        required
-      />
-      <input
-        placeholder="Building name"
-        value={values.buildingName}
-        onChange={(e) => set("buildingName", e.target.value)}
-      />
-      <input
-        placeholder="Website"
-        type="url"
-        value={values.website}
-        onChange={(e) => set("website", e.target.value)}
-      />
-      <input
-        placeholder="Leasing phone"
-        value={values.leasingPhone}
-        onChange={(e) => set("leasingPhone", e.target.value)}
-      />
-      <input
-        placeholder="Leasing email"
-        type="email"
-        value={values.leasingEmail}
-        onChange={(e) => set("leasingEmail", e.target.value)}
-      />
-      <input
-        placeholder="Units"
-        type="number"
-        value={values.numberOfUnits}
-        onChange={(e) => set("numberOfUnits", e.target.value)}
-      />
-      <input
-        placeholder="Year built"
-        type="number"
-        value={values.yearBuilt}
-        onChange={(e) => set("yearBuilt", e.target.value)}
-      />
-      <input
-        placeholder="Stories"
-        type="number"
-        value={values.numberOfStories}
-        onChange={(e) => set("numberOfStories", e.target.value)}
-      />
-      <input
-        placeholder="Total livable area (sq ft)"
-        type="number"
-        value={values.totalLivableArea}
-        onChange={(e) => set("totalLivableArea", e.target.value)}
-      />
-      <input
-        placeholder="Market value ($)"
-        type="number"
-        value={values.marketValue}
-        onChange={(e) => set("marketValue", e.target.value)}
-      />
-      <input
-        placeholder="Owner business name"
-        value={values.ownerBusinessName}
-        onChange={(e) => set("ownerBusinessName", e.target.value)}
-      />
-      <select value={values.managedBy} onChange={(e) => set("managedBy", e.target.value)}>
-        <option value="">No client assigned</option>
-        {clients.map((client) => (
-          <option key={client._id} value={client._id}>
-            {client.email}
-          </option>
-        ))}
-      </select>
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Stack maw={480}>
+        <TextInput label="Address" required {...form.getInputProps("address")} />
+        <TextInput label="Building name" {...form.getInputProps("buildingName")} />
+        <TextInput label="Website" type="url" {...form.getInputProps("website")} />
+        <TextInput label="Leasing phone" {...form.getInputProps("leasingPhone")} />
+        <TextInput label="Leasing email" type="email" {...form.getInputProps("leasingEmail")} />
+        <NumberInput label="Units" {...form.getInputProps("numberOfUnits")} />
+        <NumberInput label="Year built" {...form.getInputProps("yearBuilt")} />
+        <NumberInput label="Stories" {...form.getInputProps("numberOfStories")} />
+        <NumberInput
+          label="Total livable area (sq ft)"
+          {...form.getInputProps("totalLivableArea")}
+        />
+        <NumberInput label="Market value ($)" {...form.getInputProps("marketValue")} />
+        <TextInput label="Owner business name" {...form.getInputProps("ownerBusinessName")} />
+        <Select
+          label="Managed by"
+          placeholder="No client assigned"
+          data={clients.map((client) => ({ value: client._id, label: client.email }))}
+          clearable
+          {...form.getInputProps("managedBy")}
+        />
 
-      <button type="submit" disabled={isSaving}>
-        {submitLabel}
-      </button>
-      {onCancel && (
-        <button type="button" onClick={onCancel} disabled={isSaving}>
-          Cancel
-        </button>
-      )}
-      {error && <p role="alert">{error}</p>}
+        <Group>
+          <Button type="submit" loading={isSaving}>
+            {submitLabel}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="default" onClick={onCancel} disabled={isSaving}>
+              Cancel
+            </Button>
+          )}
+        </Group>
+        {error && <p role="alert">{error}</p>}
+      </Stack>
     </form>
   );
 }
@@ -267,11 +210,11 @@ export function toAdminForm(building: Building): AdminFormValues {
     website: building.website ?? "",
     leasingPhone: building.leasingPhone ?? "",
     leasingEmail: building.leasingEmail ?? "",
-    numberOfUnits: numToStr(building.numberOfUnits),
-    yearBuilt: numToStr(building.yearBuilt),
-    numberOfStories: numToStr(building.numberOfStories),
-    totalLivableArea: numToStr(building.totalLivableArea),
-    marketValue: numToStr(building.marketValue),
+    numberOfUnits: numToNumOrEmpty(building.numberOfUnits),
+    yearBuilt: numToNumOrEmpty(building.yearBuilt),
+    numberOfStories: numToNumOrEmpty(building.numberOfStories),
+    totalLivableArea: numToNumOrEmpty(building.totalLivableArea),
+    marketValue: numToNumOrEmpty(building.marketValue),
     ownerBusinessName: building.ownerBusinessName ?? "",
     managedBy: building.managedBy ?? "",
   };

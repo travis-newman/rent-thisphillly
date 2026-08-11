@@ -7,8 +7,10 @@ import {
   toAdminForm,
   useClientList,
 } from "../components/BuildingForms";
-import { api, type Building, type BuildingInput } from "../lib/api";
+import { PhotoGallery } from "../components/PhotoGallery";
+import { api, type Building, type BuildingInput, type Neighborhood, type Region } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
+import { uploadBuildingPhoto } from "../lib/photos";
 
 function formatCurrency(n: number | null): string | null {
   return n == null ? null : `$${n.toLocaleString()}`;
@@ -35,6 +37,8 @@ export function BuildingDetail() {
   const clients = useClientList(isAdmin);
 
   const [building, setBuilding] = useState<Building | null>(null);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [neighborhood, setNeighborhood] = useState<Neighborhood | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -45,7 +49,11 @@ export function BuildingDetail() {
     setError(null);
     api
       .getBuilding(id)
-      .then((res) => setBuilding(res.building))
+      .then((res) => {
+        setBuilding(res.building);
+        setRegion(res.region);
+        setNeighborhood(res.neighborhood);
+      })
       .catch(() => setError("Building not found."))
       .finally(() => setIsLoading(false));
   }, [id]);
@@ -64,6 +72,18 @@ export function BuildingDetail() {
     if (!confirm(`Delete ${building.buildingName ?? building.address}?`)) return;
     await api.deleteBuilding(building._id);
     navigate("/buildings");
+  }
+
+  async function handlePhotoUpload(file: File) {
+    if (!building) return;
+    const res = await uploadBuildingPhoto(building._id, file);
+    setBuilding(res.building);
+  }
+
+  async function handlePhotoDelete(key: string) {
+    if (!building) return;
+    await api.deleteBuildingPhoto(building._id, key);
+    setBuilding((prev) => (prev ? { ...prev, photos: prev.photos.filter((p) => p.key !== key) } : prev));
   }
 
   if (isLoading) return <p>Loading…</p>;
@@ -85,6 +105,22 @@ export function BuildingDetail() {
         {building.address}
         {building.zipCode ? `, ${building.zipCode}` : ""}
       </p>
+      {(region || neighborhood) && (
+        <p>
+          {region && (
+            <>
+              Region: <Link to={`/regions/${region._id}`}>{region.name}</Link>
+            </>
+          )}
+          {region && neighborhood && " · "}
+          {neighborhood && (
+            <>
+              Neighborhood:{" "}
+              <Link to={`/neighborhoods/${neighborhood._id}`}>{neighborhood.name}</Link>
+            </>
+          )}
+        </p>
+      )}
 
       {canEdit && !isEditing && <button onClick={() => setIsEditing(true)}>Edit</button>}
       {isAdmin && !isEditing && (
@@ -145,7 +181,10 @@ export function BuildingDetail() {
         <li>Construction era: {building.constructionEra ?? "—"}</li>
         <li>Stories: {building.numberOfStories ?? "—"}</li>
         <li>
-          Total livable area: {building.totalLivableArea != null ? `${building.totalLivableArea.toLocaleString()} sq ft` : "—"}
+          Total livable area:{" "}
+          {building.totalLivableArea != null
+            ? `${building.totalLivableArea.toLocaleString()} sq ft`
+            : "—"}
         </li>
         <li>Market value: {formatCurrency(building.marketValue) ?? "—"}</li>
         <li>Owner: {building.ownerBusinessName ?? "—"}</li>
@@ -180,9 +219,19 @@ export function BuildingDetail() {
         </>
       )}
 
+      <h2>Photos</h2>
+      <PhotoGallery
+        photos={building.photos}
+        canEdit={isAdmin}
+        onUpload={handlePhotoUpload}
+        onDelete={handlePhotoDelete}
+      />
+
       <h2>Data source</h2>
       <ul>
-        {isAdmin && <li>Managed by: {manager?.email ?? (building.managedBy ? "unknown client" : "—")}</li>}
+        {isAdmin && (
+          <li>Managed by: {manager?.email ?? (building.managedBy ? "unknown client" : "—")}</li>
+        )}
         <li>Source: {building.source ?? "—"}</li>
         <li>Contact confidence: {building.contactConfidence ?? "—"}</li>
         <li>Year built source: {building.yearBuiltSource ?? "—"}</li>

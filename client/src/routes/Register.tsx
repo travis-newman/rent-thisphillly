@@ -1,21 +1,24 @@
-import { useState, type FormEvent } from "react";
+import { Anchor, Button, PasswordInput, Stack, TextInput, Title } from "@mantine/core";
+import { useForm } from "@mantine/form";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 export function Register() {
   const { register } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  const form = useForm({
+    initialValues: { email: "", password: "" },
+  });
+
+  async function handleSubmit(values: { email: string; password: string }) {
     setError(null);
     setIsSubmitting(true);
     try {
-      const res = await register(email, password);
+      const res = await register(values.email, values.password);
       setMessage(res.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to register");
@@ -30,35 +33,33 @@ export function Register() {
 
   return (
     <div>
-      <h1>Create an account</h1>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <Title order={1}>Create an account</Title>
+      <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Stack maw={360}>
+          <TextInput
+            id="email"
+            label="Email"
+            type="email"
+            required
+            {...form.getInputProps("email")}
+          />
+          <PasswordInput
+            id="password"
+            label="Password"
+            minLength={8}
+            required
+            {...form.getInputProps("password")}
+          />
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
-          required
-        />
+          {error && <p role="alert">{error}</p>}
 
-        {error && <p role="alert">{error}</p>}
-
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating account…" : "Register"}
-        </button>
+          <Button type="submit" loading={isSubmitting}>
+            {isSubmitting ? "Creating account…" : "Register"}
+          </Button>
+        </Stack>
       </form>
       <p>
-        Already have an account? <Link to="/login">Log in</Link>
+        Already have an account? <Anchor component={Link} to="/login">Log in</Anchor>
       </p>
     </div>
   );

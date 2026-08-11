@@ -1,3 +1,4 @@
+import { MantineProvider } from "@mantine/core";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -15,11 +16,13 @@ import { api } from "../../lib/api";
 
 function renderRegister() {
   render(
-    <MemoryRouter>
-      <AuthProvider>
-        <Register />
-      </AuthProvider>
-    </MemoryRouter>,
+    <MantineProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <Register />
+        </AuthProvider>
+      </MemoryRouter>
+    </MantineProvider>,
   );
 }
 
@@ -37,7 +40,7 @@ describe("Register", () => {
     renderRegister();
 
     await user.type(screen.getByLabelText(/email/i), "new-user@example.com");
-    await user.type(screen.getByLabelText(/password/i), "a-strong-password");
+    await user.type(screen.getByLabelText(/^password/i), "a-strong-password");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
     expect(api.register).toHaveBeenCalledWith("new-user@example.com", "a-strong-password");
@@ -52,7 +55,7 @@ describe("Register", () => {
     renderRegister();
 
     await user.type(screen.getByLabelText(/email/i), "existing@example.com");
-    await user.type(screen.getByLabelText(/password/i), "a-strong-password");
+    await user.type(screen.getByLabelText(/^password/i), "a-strong-password");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
     await waitFor(() => {

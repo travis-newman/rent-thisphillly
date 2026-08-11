@@ -46,8 +46,15 @@ export interface AdminUser {
   createdAt: string;
 }
 
+export interface Photo {
+  key: string;
+  url: string;
+  uploadedAt: string;
+}
+
 export interface Building {
   _id: string;
+  photos: Photo[];
   address: string;
   zipCode: string | null;
   buildingName: string | null;
@@ -68,7 +75,12 @@ export interface Building {
   managedBy: string | null;
   source: string | null;
   activeListingsCount: number;
-  unitMix: { studio: number | null; br1: number | null; br2: number | null; br3plus: number | null };
+  unitMix: {
+    studio: number | null;
+    br1: number | null;
+    br2: number | null;
+    br3plus: number | null;
+  };
   rent: { min: number | null; max: number | null };
   location?: { type: "Point"; coordinates: [number, number] };
   createdAt: string;
@@ -101,6 +113,8 @@ export interface BuildingListParams {
   zipCode?: string;
   q?: string;
   mine?: boolean;
+  regionId?: string;
+  neighborhoodId?: string;
 }
 
 export interface BuildingListResponse {
@@ -108,6 +122,96 @@ export interface BuildingListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface BuildingMapPoint {
+  _id: string;
+  buildingName: string | null;
+  address: string;
+  zipCode: string | null;
+  numberOfUnits: number | null;
+  lat: number;
+  lon: number;
+}
+
+export interface Boundary {
+  type: "Polygon";
+  coordinates: number[][][];
+}
+
+// The human-authored form of a boundary — an ordered list of points (most
+// often street intersections), each optionally labeled. `boundary` above is
+// derived from these server-side and is what's used for geospatial queries.
+export interface BoundaryPoint {
+  label: string | null;
+  lat: number;
+  lon: number;
+}
+
+export interface BoundaryPointInput {
+  label?: string | null;
+  lat: number;
+  lon: number;
+}
+
+export interface Region {
+  _id: string;
+  name: string;
+  description: string | null;
+  boundaryPoints: BoundaryPoint[];
+  boundary: Boundary;
+  photos: Photo[];
+  // Only present on the list endpoint's response.
+  neighborhoodCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Neighborhood {
+  _id: string;
+  name: string;
+  description: string | null;
+  regionId: string;
+  boundaryPoints: BoundaryPoint[];
+  boundary: Boundary;
+  photos: Photo[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AreaStats {
+  buildingCount: number;
+  totalUnits: number;
+}
+
+export interface BuildingDetailResponse {
+  building: Building;
+  region: Region | null;
+  neighborhood: Neighborhood | null;
+}
+
+// Shared plumbing for the presign -> PUT (elsewhere) -> confirm -> delete
+// photo flow, used by all three entity types below. Each entity keeps its
+// own named methods (presignBuildingPhoto, etc.) rather than exposing these
+// generically, to match this file's existing per-entity-method convention.
+function presignEntityPhoto(pathPrefix: string, id: string, contentType: string) {
+  return request<{ uploadUrl: string; key: string }>(`${pathPrefix}/${id}/photos/presign`, {
+    method: "POST",
+    body: JSON.stringify({ contentType }),
+  });
+}
+
+function confirmEntityPhoto<T>(pathPrefix: string, id: string, key: string) {
+  return request<T>(`${pathPrefix}/${id}/photos`, {
+    method: "POST",
+    body: JSON.stringify({ key }),
+  });
+}
+
+function deleteEntityPhoto(pathPrefix: string, id: string, key: string) {
+  return request<void>(`${pathPrefix}/${id}/photos?key=${encodeURIComponent(key)}`, {
+    method: "DELETE",
+  });
 }
 
 export const api = {
@@ -148,11 +252,32 @@ export const api = {
     if (params.zipCode) search.set("zipCode", params.zipCode);
     if (params.q) search.set("q", params.q);
     if (params.mine) search.set("mine", "true");
+    if (params.regionId) search.set("regionId", params.regionId);
+    if (params.neighborhoodId) search.set("neighborhoodId", params.neighborhoodId);
     const qs = search.toString();
     return request<BuildingListResponse>(`/buildings${qs ? `?${qs}` : ""}`);
   },
 
-  getBuilding: (id: string) => request<{ building: Building }>(`/buildings/${id}`),
+  getBuilding: (id: string) => request<BuildingDetailResponse>(`/buildings/${id}`),
+
+  getBuildingsMap: (
+    params: {
+      zipCode?: string;
+      q?: string;
+      polygon?: [number, number][];
+      regionId?: string;
+      neighborhoodId?: string;
+    } = {},
+  ) => {
+    const search = new URLSearchParams();
+    if (params.zipCode) search.set("zipCode", params.zipCode);
+    if (params.q) search.set("q", params.q);
+    if (params.polygon) search.set("polygon", JSON.stringify(params.polygon));
+    if (params.regionId) search.set("regionId", params.regionId);
+    if (params.neighborhoodId) search.set("neighborhoodId", params.neighborhoodId);
+    const qs = search.toString();
+    return request<{ buildings: BuildingMapPoint[] }>(`/buildings/map${qs ? `?${qs}` : ""}`);
+  },
 
   createBuilding: (data: BuildingInput) =>
     request<{ building: Building }>("/buildings", {
@@ -175,4 +300,87 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  listRegions: () => request<{ regions: Region[] }>("/regions"),
+
+  getRegion: (id: string) =>
+    request<{ region: Region; neighborhoods: Neighborhood[] } & AreaStats>(`/regions/${id}`),
+
+  createRegion: (data: {
+    name: string;
+    description?: string | null;
+    boundaryPoints: BoundaryPointInput[];
+  }) => request<{ region: Region }>("/regions", { method: "POST", body: JSON.stringify(data) }),
+
+  updateRegion: (
+    id: string,
+    data: { name?: string; description?: string | null; boundaryPoints?: BoundaryPointInput[] },
+  ) =>
+    request<{ region: Region }>(`/regions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteRegion: (id: string) => request<void>(`/regions/${id}`, { method: "DELETE" }),
+
+  listNeighborhoods: (regionId?: string) =>
+    request<{ neighborhoods: Neighborhood[] }>(
+      `/neighborhoods${regionId ? `?regionId=${regionId}` : ""}`,
+    ),
+
+  getNeighborhood: (id: string) =>
+    request<{ neighborhood: Neighborhood; region: Region | null } & AreaStats>(
+      `/neighborhoods/${id}`,
+    ),
+
+  createNeighborhood: (data: {
+    regionId: string;
+    name: string;
+    description?: string | null;
+    boundaryPoints: BoundaryPointInput[];
+  }) =>
+    request<{ neighborhood: Neighborhood }>("/neighborhoods", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateNeighborhood: (
+    id: string,
+    data: {
+      regionId?: string;
+      name?: string;
+      description?: string | null;
+      boundaryPoints?: BoundaryPointInput[];
+    },
+  ) =>
+    request<{ neighborhood: Neighborhood }>(`/neighborhoods/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteNeighborhood: (id: string) => request<void>(`/neighborhoods/${id}`, { method: "DELETE" }),
+
+  geocodeSearch: (q: string) =>
+    request<{ results: { label: string; lat: number; lon: number }[] }>(
+      `/geocode/search?q=${encodeURIComponent(q)}`,
+    ),
+
+  presignBuildingPhoto: (id: string, contentType: string) =>
+    presignEntityPhoto("/buildings", id, contentType),
+  confirmBuildingPhoto: (id: string, key: string) =>
+    confirmEntityPhoto<{ building: Building }>("/buildings", id, key),
+  deleteBuildingPhoto: (id: string, key: string) => deleteEntityPhoto("/buildings", id, key),
+
+  presignRegionPhoto: (id: string, contentType: string) =>
+    presignEntityPhoto("/regions", id, contentType),
+  confirmRegionPhoto: (id: string, key: string) =>
+    confirmEntityPhoto<{ region: Region }>("/regions", id, key),
+  deleteRegionPhoto: (id: string, key: string) => deleteEntityPhoto("/regions", id, key),
+
+  presignNeighborhoodPhoto: (id: string, contentType: string) =>
+    presignEntityPhoto("/neighborhoods", id, contentType),
+  confirmNeighborhoodPhoto: (id: string, key: string) =>
+    confirmEntityPhoto<{ neighborhood: Neighborhood }>("/neighborhoods", id, key),
+  deleteNeighborhoodPhoto: (id: string, key: string) =>
+    deleteEntityPhoto("/neighborhoods", id, key),
 };

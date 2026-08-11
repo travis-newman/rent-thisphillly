@@ -20,6 +20,17 @@ const envSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().optional(),
+    // Photo storage (Cloudflare R2). Left optional rather than required —
+    // unlike SMTP, there's no "disabled" toggle, since not having a bucket
+    // configured yet is just a bootstrapping state, not a deliberate choice;
+    // isR2Configured() (server/src/config/r2.ts) checks these at the point
+    // photo endpoints are actually used, so a missing value 503s just that
+    // feature instead of blocking the whole server from starting.
+    R2_ACCOUNT_ID: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_BUCKET: z.string().optional(),
+    R2_PUBLIC_URL: z.string().optional(),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   })
   .superRefine((data, ctx) => {

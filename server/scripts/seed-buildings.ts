@@ -146,7 +146,9 @@ async function main(): Promise<void> {
   const rows = parseCSV(csvText).filter((r) => r.some((f) => f !== ""));
   const [header, ...dataRows] = rows;
 
-  const records = dataRows.map((row) => rowToRecord(header, row)).filter((r): r is BuildingRecord => r !== null);
+  const records = dataRows
+    .map((row) => rowToRecord(header, row))
+    .filter((r): r is BuildingRecord => r !== null);
 
   console.log(`Parsed ${records.length} building records from ${CSV_PATH}`);
 

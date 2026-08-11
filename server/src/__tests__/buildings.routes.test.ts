@@ -8,6 +8,8 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import { createApp } from "../app";
 import { BuildingModel } from "../models/Building";
+import { NeighborhoodModel } from "../models/Neighborhood";
+import { RegionModel } from "../models/Region";
 import { UserModel, type Role } from "../models/User";
 
 const app = createApp();
@@ -21,6 +23,8 @@ beforeAll(async () => {
 afterEach(async () => {
   await BuildingModel.deleteMany({});
   await UserModel.deleteMany({});
+  await RegionModel.deleteMany({});
+  await NeighborhoodModel.deleteMany({});
 });
 
 afterAll(async () => {
@@ -91,6 +95,57 @@ describe("buildings routes", () => {
     expect(res.body.building.buildingName).toBe("City View Apartments");
   });
 
+  it("resolves the containing region and neighborhood on a building's detail response", async () => {
+    const regionBox = [
+      [-75.2, 39.9],
+      [-75.1, 39.9],
+      [-75.1, 40.0],
+      [-75.2, 40.0],
+      [-75.2, 39.9],
+    ];
+    const neighborhoodBox = [
+      [-75.18, 39.92],
+      [-75.12, 39.92],
+      [-75.12, 39.98],
+      [-75.18, 39.98],
+      [-75.18, 39.92],
+    ];
+    const region = await RegionModel.create({
+      name: "Test Region",
+      boundary: { type: "Polygon", coordinates: [regionBox] },
+    });
+    await NeighborhoodModel.create({
+      regionId: region._id,
+      name: "Test Neighborhood",
+      boundary: { type: "Polygon", coordinates: [neighborhoodBox] },
+    });
+
+    const inBoth = await BuildingModel.create({
+      address: "INSIDE NEIGHBORHOOD",
+      location: { type: "Point", coordinates: [-75.15, 39.95] },
+    });
+    const inRegionOnly = await BuildingModel.create({
+      address: "INSIDE REGION ONLY",
+      location: { type: "Point", coordinates: [-75.19, 39.91] },
+    });
+    const inNeither = await BuildingModel.create({
+      address: "OUTSIDE BOTH",
+      location: { type: "Point", coordinates: [-75.5, 40.3] },
+    });
+
+    const bothRes = await request(app).get(`/api/buildings/${inBoth.id}`);
+    expect(bothRes.body.region.name).toBe("Test Region");
+    expect(bothRes.body.neighborhood.name).toBe("Test Neighborhood");
+
+    const regionOnlyRes = await request(app).get(`/api/buildings/${inRegionOnly.id}`);
+    expect(regionOnlyRes.body.region.name).toBe("Test Region");
+    expect(regionOnlyRes.body.neighborhood).toBeNull();
+
+    const neitherRes = await request(app).get(`/api/buildings/${inNeither.id}`);
+    expect(neitherRes.body.region).toBeNull();
+    expect(neitherRes.body.neighborhood).toBeNull();
+  });
+
   it("returns 404 for a missing building", async () => {
     const missingId = new mongoose.Types.ObjectId();
 
@@ -99,12 +154,205 @@ describe("buildings routes", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns lightweight map points only for buildings with a location", async () => {
+    await seedBuildings(); // none of these have a location
+    await BuildingModel.create({
+      address: "300 GEO ST",
+      zipCode: "19106",
+      buildingName: "Geo Towers",
+      numberOfUnits: 10,
+      location: { type: "Point", coordinates: [-75.16, 39.95] },
+    });
+
+    const res = await request(app).get("/api/buildings/map");
+
+    expect(res.status).toBe(200);
+    expect(res.body.buildings).toHaveLength(1);
+    expect(res.body.buildings[0]).toMatchObject({
+      buildingName: "Geo Towers",
+      address: "300 GEO ST",
+      numberOfUnits: 10,
+      lon: -75.16,
+      lat: 39.95,
+    });
+  });
+
+  it("filters map points by search query", async () => {
+    await BuildingModel.create([
+      {
+        address: "300 GEO ST",
+        buildingName: "Geo Towers",
+        location: { type: "Point", coordinates: [-75.16, 39.95] },
+      },
+      {
+        address: "400 OTHER ST",
+        buildingName: "Other Place",
+        location: { type: "Point", coordinates: [-75.17, 39.96] },
+      },
+    ]);
+
+    const res = await request(app).get("/api/buildings/map").query({ q: "geo" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.buildings).toHaveLength(1);
+    expect(res.body.buildings[0].buildingName).toBe("Geo Towers");
+  });
+
+  it("filters map points to those inside a region or neighborhood", async () => {
+    const regionBox = [
+      [-75.2, 39.9],
+      [-75.1, 39.9],
+      [-75.1, 40.0],
+      [-75.2, 40.0],
+      [-75.2, 39.9],
+    ];
+    const neighborhoodBox = [
+      [-75.18, 39.92],
+      [-75.12, 39.92],
+      [-75.12, 39.98],
+      [-75.18, 39.98],
+      [-75.18, 39.92],
+    ];
+    const region = await RegionModel.create({
+      name: "Test Region",
+      boundary: { type: "Polygon", coordinates: [regionBox] },
+    });
+    const neighborhood = await NeighborhoodModel.create({
+      regionId: region._id,
+      name: "Test Neighborhood",
+      boundary: { type: "Polygon", coordinates: [neighborhoodBox] },
+    });
+    await BuildingModel.create([
+      { address: "IN BOTH", location: { type: "Point", coordinates: [-75.15, 39.95] } },
+      { address: "REGION ONLY", location: { type: "Point", coordinates: [-75.19, 39.91] } },
+      { address: "NEITHER", location: { type: "Point", coordinates: [-75.5, 40.3] } },
+    ]);
+
+    const regionRes = await request(app).get("/api/buildings/map").query({ regionId: region.id });
+    expect(regionRes.body.buildings).toHaveLength(2);
+
+    const neighborhoodRes = await request(app)
+      .get("/api/buildings/map")
+      .query({ neighborhoodId: neighborhood.id });
+    expect(neighborhoodRes.body.buildings).toHaveLength(1);
+    expect(neighborhoodRes.body.buildings[0].address).toBe("IN BOTH");
+  });
+
+  it("returns no map points for a non-existent regionId", async () => {
+    const res = await request(app)
+      .get("/api/buildings/map")
+      .query({ regionId: new mongoose.Types.ObjectId().toString() });
+    expect(res.status).toBe(200);
+    expect(res.body.buildings).toEqual([]);
+  });
+
+  it("filters map points to those inside a drawn polygon", async () => {
+    await BuildingModel.create([
+      { address: "INSIDE ST", location: { type: "Point", coordinates: [-75.16, 39.95] } },
+      { address: "OUTSIDE ST", location: { type: "Point", coordinates: [-75.3, 40.1] } },
+    ]);
+
+    // A box around [-75.17, 39.94] to [-75.15, 39.96], which contains
+    // "INSIDE ST" (-75.16, 39.95) but not "OUTSIDE ST".
+    const polygon = [
+      [-75.17, 39.94],
+      [-75.15, 39.94],
+      [-75.15, 39.96],
+      [-75.17, 39.96],
+      [-75.17, 39.94],
+    ];
+
+    const res = await request(app)
+      .get("/api/buildings/map")
+      .query({ polygon: JSON.stringify(polygon) });
+
+    expect(res.status).toBe(200);
+    expect(res.body.buildings).toHaveLength(1);
+    expect(res.body.buildings[0].address).toBe("INSIDE ST");
+  });
+
+  it("auto-closes an open polygon ring", async () => {
+    await BuildingModel.create({
+      address: "INSIDE ST",
+      location: { type: "Point", coordinates: [-75.16, 39.95] },
+    });
+
+    // Same box as above but without repeating the first point at the end.
+    const openRing = [
+      [-75.17, 39.94],
+      [-75.15, 39.94],
+      [-75.15, 39.96],
+      [-75.17, 39.96],
+    ];
+
+    const res = await request(app)
+      .get("/api/buildings/map")
+      .query({ polygon: JSON.stringify(openRing) });
+
+    expect(res.status).toBe(200);
+    expect(res.body.buildings).toHaveLength(1);
+  });
+
+  it("rejects a malformed polygon", async () => {
+    const res = await request(app).get("/api/buildings/map").query({ polygon: "not json" });
+    expect(res.status).toBe(400);
+
+    const tooFewPoints = await request(app)
+      .get("/api/buildings/map")
+      .query({
+        polygon: JSON.stringify([
+          [1, 2],
+          [3, 4],
+        ]),
+      });
+    expect(tooFewPoints.status).toBe(400);
+  });
+
+  it("filters the paginated list to buildings inside a region", async () => {
+    const regionBox = [
+      [-75.2, 39.9],
+      [-75.1, 39.9],
+      [-75.1, 40.0],
+      [-75.2, 40.0],
+      [-75.2, 39.9],
+    ];
+    const region = await RegionModel.create({
+      name: "Test Region",
+      boundary: { type: "Polygon", coordinates: [regionBox] },
+    });
+    await seedBuildings(); // none of these have a location, so none match
+    await BuildingModel.create({
+      address: "INSIDE REGION",
+      location: { type: "Point", coordinates: [-75.15, 39.95] },
+    });
+
+    const res = await request(app).get("/api/buildings").query({ regionId: region.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.buildings[0].address).toBe("INSIDE REGION");
+  });
+
+  it("returns an empty paginated list for a non-existent neighborhoodId", async () => {
+    await seedBuildings();
+
+    const res = await request(app)
+      .get("/api/buildings")
+      .query({ neighborhoodId: new mongoose.Types.ObjectId().toString() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(0);
+  });
+
   it("filters to the current client's managed buildings with ?mine=true", async () => {
     const { cookies, userId } = await createAuthedUser("client");
     await seedBuildings();
     await BuildingModel.updateOne({ address: "1 CITY AVE" }, { managedBy: userId });
 
-    const res = await request(app).get("/api/buildings").query({ mine: "true" }).set("Cookie", cookies);
+    const res = await request(app)
+      .get("/api/buildings")
+      .query({ mine: "true" })
+      .set("Cookie", cookies);
 
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(1);
@@ -146,7 +394,9 @@ describe("buildings routes", () => {
         .post("/api/buildings")
         .set("Cookie", cookies)
         .send({ address: "1 NEW ST" });
-      const deleteRes = await request(app).delete(`/api/buildings/${building!.id}`).set("Cookie", cookies);
+      const deleteRes = await request(app)
+        .delete(`/api/buildings/${building!.id}`)
+        .set("Cookie", cookies);
 
       expect(createRes.status).toBe(403);
       expect(deleteRes.status).toBe(403);

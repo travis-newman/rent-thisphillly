@@ -1,6 +1,44 @@
-import { Schema, model, type InferSchemaType } from "mongoose";
+import { Schema, model, type Types } from "mongoose";
+import type { Photo } from "../utils/photos";
 
-const buildingSchema = new Schema(
+// InferSchemaType misreads a single-level array-of-subdocuments field
+// (confirmed while adding `photos` below — it infers a full Mongoose
+// `Subdocument` shape instead of a plain object) the same way it already
+// does for Region/Neighborhood's triple-nested boundary coordinates, so
+// this model's document shape is hand-written too rather than inferred.
+export interface Building {
+  address: string;
+  zipCode: string | null;
+  buildingName: string | null;
+  leasingPhone: string | null;
+  leasingEmail: string | null;
+  website: string | null;
+  websiteSource: string | null;
+  contactConfidence: string | null;
+  numberOfUnits: number | null;
+  yearBuilt: number | null;
+  yearBuiltSource: string | null;
+  constructionEra: string | null;
+  numberOfStories: number | null;
+  totalLivableArea: number | null;
+  marketValue: number | null;
+  ownerBusinessName: string | null;
+  parcelNumber: string | null;
+  managedBy: Types.ObjectId | null;
+  source: string | null;
+  activeListingsCount: number;
+  unitMix: {
+    studio: number | null;
+    br1: number | null;
+    br2: number | null;
+    br3plus: number | null;
+  };
+  rent: { min: number | null; max: number | null };
+  location?: { type: "Point"; coordinates: number[] };
+  photos: Photo[];
+}
+
+const buildingSchema = new Schema<Building>(
   {
     address: { type: String, required: true, trim: true },
     zipCode: { type: String, trim: true },
@@ -44,6 +82,15 @@ const buildingSchema = new Schema(
       type: { type: String, enum: ["Point"], default: undefined },
       coordinates: { type: [Number], default: undefined },
     },
+
+    photos: [
+      {
+        _id: false,
+        key: { type: String, required: true },
+        url: { type: String, required: true },
+        uploadedAt: { type: Date, required: true },
+      },
+    ],
   },
   { timestamps: true },
 );
@@ -54,6 +101,4 @@ buildingSchema.index({ parcelNumber: 1 });
 buildingSchema.index({ managedBy: 1 });
 buildingSchema.index({ address: 1, zipCode: 1 });
 
-export type Building = InferSchemaType<typeof buildingSchema>;
-
-export const BuildingModel = model("Building", buildingSchema);
+export const BuildingModel = model<Building>("Building", buildingSchema);

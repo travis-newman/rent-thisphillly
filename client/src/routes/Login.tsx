@@ -1,21 +1,24 @@
-import { useState, type FormEvent } from "react";
+import { Anchor, Button, PasswordInput, Stack, TextInput, Title } from "@mantine/core";
+import { useForm } from "@mantine/form";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  const form = useForm({
+    initialValues: { email: "", password: "" },
+  });
+
+  async function handleSubmit(values: { email: string; password: string }) {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(values.email, values.password);
       navigate("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log in");
@@ -26,37 +29,37 @@ export function Login() {
 
   return (
     <div>
-      <h1>Log in</h1>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <Title order={1}>Log in</Title>
+      <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Stack maw={360}>
+          <TextInput
+            id="email"
+            label="Email"
+            type="email"
+            required
+            {...form.getInputProps("email")}
+          />
+          <PasswordInput
+            id="password"
+            label="Password"
+            required
+            {...form.getInputProps("password")}
+          />
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+          {error && <p role="alert">{error}</p>}
 
-        {error && <p role="alert">{error}</p>}
-
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in…" : "Log in"}
-        </button>
+          <Button type="submit" loading={isSubmitting}>
+            {isSubmitting ? "Logging in…" : "Log in"}
+          </Button>
+        </Stack>
       </form>
       <p>
-        <Link to="/forgot-password">Forgot your password?</Link>
+        <Anchor component={Link} to="/forgot-password">
+          Forgot your password?
+        </Anchor>
       </p>
       <p>
-        Don&apos;t have an account? <Link to="/register">Register</Link>
+        Don&apos;t have an account? <Anchor component={Link} to="/register">Register</Anchor>
       </p>
     </div>
   );

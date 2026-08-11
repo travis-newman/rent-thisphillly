@@ -22,6 +22,8 @@ export function Dashboard() {
           <>
             {" · "}
             <Link to="/admin/users">Manage users</Link>
+            {" · "}
+            <Link to="/admin/regions">Manage regions</Link>
           </>
         )}
       </p>

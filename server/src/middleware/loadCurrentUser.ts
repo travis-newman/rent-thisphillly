@@ -16,7 +16,11 @@ declare global {
 // than trusted from the JWT, so a role change or suspension by an admin
 // takes effect on the user's very next request instead of waiting for their
 // access token to expire.
-export async function loadCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function loadCurrentUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const user = await UserModel.findById(req.userId);
   if (!user) {
     res.status(401).json({ message: "Not authenticated" });
